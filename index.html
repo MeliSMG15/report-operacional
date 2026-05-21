@@ -395,8 +395,8 @@ tr.gap-row td{font-size:11px;}
             </div>
             <div class="aloc-row">
               <span class="aloc-dot" style="background:var(--red)"></span>
-              <span class="aloc-name">Pendentes</span>
-              <span class="aloc-val c-red"><span class="ef mono" contenteditable="true" data-key="alocPend">0</span></span>
+              <span class="aloc-name">Pendentes <small class="c-muted">(auto)</small></span>
+              <span class="aloc-val c-red mono" id="mAlocPend">0</span>
             </div>
             <div class="aloc-row">
               <span class="aloc-dot" style="background:var(--blue)"></span>
@@ -494,7 +494,7 @@ function syncSet(path,value){
 function buildSnapshot(){
   return {
     inicio:S.inicio, processar:S.processar||0, roteirizado:S.roteirizado||0,
-    alocPend:S.alocPend||0, hc:S.hc||0, abs:S.abs||0,
+    hc:S.hc||0, abs:S.abs||0,
     stations:S.stations, sortNoCarrinho:S.sortNoCarrinho,
     lineHaul:S.lineHaul, pendencias:S.pendencias,
   };
@@ -531,7 +531,6 @@ function applyRemote(remote){
 const S = {
   inicio:'00:15',
   processar:0, roteirizado:0,
-  alocPend:0,
   hc:0, abs:0,
   stations:[
     {name:'Estação 1', h:[0,0,0,0,0,0,0,0]},
@@ -569,6 +568,7 @@ function getFinalM(){return (toMin(S.inicio)+SHIFT_H*60)%1440;}
 function getFinalStr(){return fromMin(getFinalM());}
 function getEtiquetados(){return S.stations.reduce((s,st)=>s+st.h.reduce((a,b)=>a+b,0),0);}
 function getCarrinho(){return S.sortNoCarrinho.reduce((a,b)=>a+b,0);}
+function getAlocPend(){return Math.max(0,(S.roteirizado||0)-getCarrinho());}
 function getPlanPerHour(){return S.roteirizado/H_COUNT;}
 
 function selectAll(el){
@@ -729,7 +729,8 @@ function renderDonuts(){
   $('donutPct').textContent=pct.toFixed(1)+'%';
 
   const car=getCarrinho();
-  const aT=car+S.alocPend;
+  const pend=getAlocPend();
+  const aT=car+pend;
   const aP=aT>0?(car/aT)*100:0;
   const C2=2*Math.PI*DONUT_R_SMALL;
   const ad=$('alocDonut');
@@ -739,6 +740,7 @@ function renderDonuts(){
   $('alocPct').textContent=aP.toFixed(1)+'%';
   $('alocGaiola').textContent=aP.toFixed(2)+'%';
   $('mCarrinho').textContent=fmtNum(car);
+  $('mAlocPend').textContent=fmtNum(pend);
 
   const cActive=S.sortNoCarrinho.filter(v=>v>0).length;
   const cRit=cActive>0?Math.round(car/cActive):0;
@@ -901,7 +903,7 @@ function renderAlerts(){
   const planTotal=planPH*H_COUNT;
   const gap=etiq-planTotal;
   const car=getCarrinho();
-  const aT=car+S.alocPend;
+  const aT=car+getAlocPend();
   const aP=aT>0?(car/aT)*100:0;
   const chips=[];
 
