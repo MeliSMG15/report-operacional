@@ -979,6 +979,37 @@ function delPendenciaRow(i){
   syncSet('pendencias',S.pendencias);
 }
 
+// Paste em lote: aceita uma coluna (1 valor por linha) ou duas (Origem<TAB>Quant)
+function handlePendenciaPaste(e){
+  const el=e.target;
+  if(!el||!el.classList||!el.classList.contains('ef')||el.dataset.pdi==null)return;
+  const text=(e.clipboardData||window.clipboardData).getData('text');
+  if(!text)return;
+  const rows=text.split(/\r?\n/).filter(r=>r.length>0);
+  // single value sem tab: deixa o paste padrão funcionar
+  if(rows.length===1&&!rows[0].includes('\t'))return;
+  e.preventDefault();
+  const startI=parseInt(el.dataset.pdi,10);
+  const startCol=el.dataset.pdc;
+  const cols=['origem','quant'];
+  const startColIdx=cols.indexOf(startCol);
+  rows.forEach((rowText,rIdx)=>{
+    const cells=rowText.split('\t');
+    const tI=startI+rIdx;
+    while(S.pendencias.length<=tI)S.pendencias.push({origem:'',quant:0});
+    cells.forEach((val,cIdx)=>{
+      const colIdx=startColIdx+cIdx;
+      if(colIdx>=cols.length)return;
+      const colName=cols[colIdx];
+      const v=val.trim();
+      if(colName==='origem')S.pendencias[tI].origem=v;
+      else if(colName==='quant')S.pendencias[tI].quant=parseN(v);
+    });
+  });
+  renderPendencias();
+  syncSet('pendencias',S.pendencias);
+}
+
 function renderAlerts(){
   const etiq=getEtiquetados();
   const pct=S.processar>0?(etiq/S.processar)*100:0;
@@ -1041,6 +1072,7 @@ function init(){
     const btn=e.target.closest('[data-pddel]');
     if(btn)delPendenciaRow(parseInt(btn.dataset.pddel,10));
   });
+  $('pdBody').addEventListener('paste',handlePendenciaPaste);
   // Inicializar seletores de data e turno
   const dateEl=$('dateSelect');
   const shiftEl=$('shiftSelect');
