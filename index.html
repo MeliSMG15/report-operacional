@@ -755,7 +755,7 @@ function commitStation(el){
     el.textContent=v>0?fmtNum(v):'—';
   }
   renderAll();
-  syncSet(`stations/${si}`,S.stations[si]);
+  syncSet('stations',S.stations);
 }
 
 function addStation(){
@@ -798,7 +798,7 @@ function commitSort(el){
   const i=parseInt(el.dataset.idx,10);
   S[k][i]=parseN(el.textContent);
   renderAll();
-  syncSet(`${k}/${i}`,S[k][i]);
+  syncSet(k,S[k]);
 }
 
 function renderDonuts(){
@@ -913,7 +913,7 @@ function commitDescarregado(i,val){
   if(!S.lineHaul[i])return;
   S.lineHaul[i].descarregado=S.lineHaul[i].descarregado===val?null:val;
   renderLineHaul();
-  syncSet(`lineHaul/${i}/descarregado`,S.lineHaul[i].descarregado);
+  syncSet('lineHaul',S.lineHaul);
 }
 
 function commitLineHaul(el){
@@ -923,7 +923,7 @@ function commitLineHaul(el){
   const v=(el.value!==undefined?el.value:el.textContent).trim();
   S.lineHaul[i][c]=v;
   if(el.tagName==='SPAN'){el.textContent=v||'—';}
-  syncSet(`lineHaul/${i}/${c}`,v);
+  syncSet('lineHaul',S.lineHaul);
 }
 
 function addLineHaulRow(){
@@ -952,6 +952,7 @@ function renderPendencias(){
 }
 
 function commitPendencia(el){
+  if(!el||!el.isConnected)return;
   const i=parseInt(el.dataset.pdi,10);
   const c=el.dataset.pdc;
   if(isNaN(i)||!S.pendencias[i]||!c)return;
@@ -963,7 +964,7 @@ function commitPendencia(el){
     S.pendencias[i].quant=parseN(v);
   }
   renderPendencias();
-  syncSet(`pendencias/${i}`,S.pendencias[i]);
+  syncSet('pendencias',S.pendencias);
 }
 
 function addPendenciaRow(){
