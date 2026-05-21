@@ -285,7 +285,6 @@ tr.gap-row td{font-size:11px;}
     </select>
     <button id="todayBtn" class="today-btn" title="Voltar para hoje">HOJE</button>
     <div class="live-badge"><span class="live-dot"></span>AO VIVO</div>
-    <span class="edit-hint">✎ clique para editar</span>
     <span class="sync-status syncing" id="syncStatus" title="Sincronização com Firebase">⏳ CONECTANDO</span>
   </div>
   <div class="brand">REPORT <span>OPERACIONAL</span></div>
@@ -495,15 +494,17 @@ function setSyncStatus(state,text){
   el.textContent=text;
 }
 
-function syncSet(path,value){
-  if(!syncEnabled||isApplyingRemote)return;
+function syncSet(_path,_value){
+  // Sempre envia o snapshot COMPLETO. Push parcial sumia com estações em dia novo:
+  // Firebase guardava só o que foi escrito; listener voltava sparso e applyRemote
+  // substituía S.stations por array curto, perdendo as outras estações.
+  if(!syncEnabled||isApplyingRemote||!stateRef)return;
   try{
-    const clean=value===undefined?null:JSON.parse(JSON.stringify(value));
     setSyncStatus('syncing','⇡ enviando…');
-    const p=path?stateRef.child(path).set(clean):stateRef.set(clean);
-    p.then(()=>setSyncStatus('synced','✓ sincronizado'))
-     .catch(e=>{console.warn('sync err',path,e);setSyncStatus('error','⚠ erro');});
-  }catch(e){console.warn('sync falhou',path,e);setSyncStatus('error','⚠ erro');}
+    stateRef.set(JSON.parse(JSON.stringify(buildSnapshot())))
+      .then(()=>setSyncStatus('synced','✓ sincronizado'))
+      .catch(e=>{console.warn('sync err',e);setSyncStatus('error','⚠ erro');});
+  }catch(e){console.warn('sync falhou',e);setSyncStatus('error','⚠ erro');}
 }
 
 function buildSnapshot(){
@@ -561,14 +562,51 @@ function switchReport(){
   startStateSync();
 }
 
-function ensureArr(v){return Array.isArray(v)?v:(v&&typeof v==='object'?Object.values(v):v);}
+function ensureArr(v){
+  if(Array.isArray(v))return v.slice();
+  if(v&&typeof v==='object'){
+    const keys=Object.keys(v).map(Number).filter(n=>!isNaN(n)).sort((a,b)=>a-b);
+    const max=keys.length?keys[keys.length-1]:-1;
+    const out=[];
+    for(let i=0;i<=max;i++)out[i]=v[i]!==undefined?v[i]:0;
+    return out;
+  }
+  return [];
+}
+function padArr(arr,len,fill){
+  const out=arr.slice();
+  while(out.length<len)out.push(typeof fill==='function'?fill():fill);
+  return out;
+}
 function applyRemote(remote){
   isApplyingRemote=true;
-  Object.keys(remote).forEach(k=>{S[k]=remote[k];});
-  ['stations','sortNoCarrinho','lineHaul','pendencias'].forEach(k=>{
-    if(remote[k]!=null)S[k]=ensureArr(remote[k]);
+  // Escalar fields
+  ['inicio','processar','roteirizado','hc','abs'].forEach(k=>{
+    if(remote[k]!==undefined)S[k]=remote[k];
   });
-  if(S.stations)S.stations.forEach(st=>{if(st&&st.h)st.h=ensureArr(st.h);});
+  // Stations: garante length mínima dos defaults e h length=H_COUNT
+  if(remote.stations!=null){
+    const rs=ensureArr(remote.stations);
+    S.stations=rs.map(st=>({
+      name:st&&st.name?String(st.name):'Estação',
+      h:padArr(ensureArr(st&&st.h).map(v=>Number(v)||0),H_COUNT,0)
+    }));
+  }
+  if(remote.sortNoCarrinho!=null){
+    S.sortNoCarrinho=padArr(ensureArr(remote.sortNoCarrinho).map(v=>Number(v)||0),H_COUNT,0);
+  }
+  if(remote.lineHaul!=null){
+    S.lineHaul=ensureArr(remote.lineHaul).map(r=>({
+      origem:r&&r.origem||'', volume:r&&r.volume||'',
+      eta:r&&r.eta||'', previsao:r&&r.previsao||'',
+      descarregado:r&&r.descarregado||null
+    }));
+  }
+  if(remote.pendencias!=null){
+    S.pendencias=ensureArr(remote.pendencias).map(p=>({
+      origem:p&&p.origem||'', quant:Number(p&&p.quant)||0
+    }));
+  }
   renderAll();
   isApplyingRemote=false;
 }
