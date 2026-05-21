@@ -30,6 +30,12 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);min-height:10
 .topbar-left{display:flex;align-items:center;gap:14px;}
 .topbar-right{display:flex;align-items:center;gap:18px;justify-content:flex-end;}
 .site-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:var(--accent);color:var(--ink);font-weight:800;font-size:13px;letter-spacing:1.5px;}
+.date-select,.shift-select{background:var(--accent);color:var(--ink);font-weight:800;font-size:13px;letter-spacing:1px;border:none;padding:5px 10px;font-family:var(--font);cursor:pointer;outline:none;border-radius:0;}
+.date-select{font-family:var(--font-mono);font-size:12px;}
+.date-select::-webkit-calendar-picker-indicator{cursor:pointer;filter:invert(0);}
+.shift-select{appearance:none;-webkit-appearance:none;padding-right:22px;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'><path d='M0 0l4 5 4-5z' fill='%23000'/></svg>");background-repeat:no-repeat;background-position:right 8px center;}
+.today-btn{background:transparent;color:var(--accent);border:1px solid var(--accent);font-family:var(--font);font-weight:700;font-size:10px;letter-spacing:1px;padding:5px 9px;cursor:pointer;border-radius:3px;transition:all .15s;}
+.today-btn:hover{background:var(--accent);color:var(--ink);}
 .brand{text-align:center;font-size:22px;font-weight:900;letter-spacing:4px;color:var(--accent);text-shadow:1px 1px 0 rgba(0,0,0,.4);}
 .brand span{color:#fff;}
 .edit-hint{font-family:var(--font-mono);font-size:10px;color:rgba(255,255,255,.6);padding:4px 10px;border:1px solid rgba(255,255,255,.18);border-radius:3px;}
@@ -272,7 +278,12 @@ tr.gap-row td{font-size:11px;}
 
 <header class="topbar">
   <div class="topbar-left">
-    <div class="site-badge">▼ AM</div>
+    <input type="date" id="dateSelect" class="date-select">
+    <select id="shiftSelect" class="shift-select">
+      <option value="AM">AM</option>
+      <option value="PM">PM</option>
+    </select>
+    <button id="todayBtn" class="today-btn" title="Voltar para hoje">HOJE</button>
     <div class="live-badge"><span class="live-dot"></span>AO VIVO</div>
     <span class="edit-hint">✎ clique para editar</span>
     <span class="sync-status syncing" id="syncStatus" title="Sincronização com Firebase">⏳ CONECTANDO</span>
@@ -467,9 +478,13 @@ let fbDb=null, stateRef=null, syncEnabled=false;
 try{
   firebase.initializeApp(firebaseConfig);
   fbDb=firebase.database();
-  stateRef=fbDb.ref('state');
   syncEnabled=true;
 }catch(e){console.warn('Firebase indisponível',e);}
+
+// Contexto (data + turno) define o caminho no Firebase: reports/{YYYY-MM-DD}/{AM|PM}
+function todayISO(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+let currentDate=todayISO(), currentShift='AM';
+function buildStateRef(){return syncEnabled?fbDb.ref(`reports/${currentDate}/${currentShift}`):null;}
 let isApplyingRemote=false;
 let pendingRemoteUpdate=null;
 
@@ -500,12 +515,36 @@ function buildSnapshot(){
   };
 }
 
+function resetToDefaults(){
+  S.inicio = currentShift==='PM' ? '13:00' : '00:15';
+  S.processar=0; S.roteirizado=0; S.hc=0; S.abs=0;
+  S.stations=[
+    {name:'Estação 1', h:[0,0,0,0,0,0,0,0]},
+    {name:'Estação 2', h:[0,0,0,0,0,0,0,0]},
+    {name:'Estação 3', h:[0,0,0,0,0,0,0,0]},
+    {name:'Estação 4', h:[0,0,0,0,0,0,0,0]},
+    {name:'Volumoso',  h:[0,0,0,0,0,0,0,0]},
+    {name:'BIG',       h:[0,0,0,0,0,0,0,0]},
+    {name:'Linha Branca', h:[0,0,0,0,0,0,0,0]},
+  ];
+  S.sortNoCarrinho=[0,0,0,0,0,0,0,0];
+  S.lineHaul=Array.from({length:6},()=>({origem:'',volume:'',eta:'',previsao:'',descarregado:null}));
+  S.pendencias=Array.from({length:9},()=>({origem:'',quant:0}));
+}
+
 function startStateSync(){
   if(!syncEnabled){setSyncStatus('error','✕ sem sync');return;}
+  if(stateRef){try{stateRef.off();}catch(e){}}
+  stateRef=buildStateRef();
+  if(!stateRef){setSyncStatus('error','✕ sem ref');return;}
   setSyncStatus('syncing','⏳ conectando…');
   stateRef.on('value',snap=>{
     const r=snap.val();
-    if(!r){ syncSet(null,buildSnapshot()); return; }
+    if(!r){
+      // Nada salvo nesse dia/turno: fica vazio local, NÃO sobrescreve nada no Firebase
+      setSyncStatus('synced','✓ novo (vazio)');
+      return;
+    }
     const ae=document.activeElement;
     if(ae&&ae.classList&&ae.classList.contains('ef')){ pendingRemoteUpdate=r; return; }
     applyRemote(r);
@@ -514,6 +553,12 @@ function startStateSync(){
     console.warn('listen err',err);
     setSyncStatus('error','⚠ desconectado');
   });
+}
+
+function switchReport(){
+  resetToDefaults();
+  renderAll();
+  startStateSync();
 }
 
 function ensureArr(v){return Array.isArray(v)?v:(v&&typeof v==='object'?Object.values(v):v);}
@@ -958,6 +1003,36 @@ function init(){
     const btn=e.target.closest('[data-pddel]');
     if(btn)delPendenciaRow(parseInt(btn.dataset.pddel,10));
   });
+  // Inicializar seletores de data e turno
+  const dateEl=$('dateSelect');
+  const shiftEl=$('shiftSelect');
+  if(dateEl){
+    dateEl.value=currentDate;
+    dateEl.addEventListener('change',e=>{
+      currentDate=e.target.value||todayISO();
+      if(!e.target.value)dateEl.value=currentDate;
+      switchReport();
+    });
+  }
+  if(shiftEl){
+    // Auto-detecta AM/PM no primeiro load
+    currentShift=new Date().getHours()<12?'AM':'PM';
+    shiftEl.value=currentShift;
+    shiftEl.addEventListener('change',e=>{
+      currentShift=e.target.value;
+      switchReport();
+    });
+  }
+  // Botão HOJE (se existir no DOM)
+  const todayBtn=$('todayBtn');
+  if(todayBtn)todayBtn.addEventListener('click',()=>{
+    currentDate=todayISO();
+    if(dateEl)dateEl.value=currentDate;
+    switchReport();
+  });
+
+  // Aplica defaults corretos pro turno detectado (sobrescrito pelo Firebase se houver dados)
+  resetToDefaults();
   renderAll();
   startStateSync();
   setInterval(tick,1000);
