@@ -1038,7 +1038,20 @@ function renderAlerts(){
   $('alertsBar').innerHTML=chips.map(c=>`<div class="alert-chip ${c.t}">${c.m}</div>`).join('');
 }
 
+function renderEditableFields(){
+  document.querySelectorAll('.ef[data-key]').forEach(el=>{
+    if(el===document.activeElement)return;
+    const key=el.dataset.key;
+    if(!(key in S))return;
+    const val=S[key];
+    if(val==null)return;
+    if(TEXT_KEYS.has(key))el.textContent=val;
+    else el.textContent=fmtNum(val);
+  });
+}
+
 function renderAll(){
+  renderEditableFields();
   renderDonuts();
   renderMetrics();
   renderStations();
