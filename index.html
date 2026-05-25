@@ -24,6 +24,16 @@
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:var(--bg);color:var(--ink);font-family:var(--font);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased;}
+
+/* Tema PM: troca os amarelos claros por azuis claros */
+body.pm{
+  --soft:#dbeafe;
+  --soft-2:#bfdbfe;
+  --paper-2:#eff6ff;
+  --bg:#e8efe6;
+}
+body.pm .turno-bar-fill{background:linear-gradient(90deg,#3b82f6,#1d4ed8);}
+body.pm .alert-chip.warning{background:#dbeafe;color:#1e3a8a;border-color:#3b82f6;}
 .mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums;}
 
 .topbar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:24px;padding:14px 24px;background:var(--ink);color:#fff;border-bottom:3px solid var(--accent);position:sticky;top:0;z-index:100;}
@@ -556,7 +566,12 @@ function startStateSync(){
   });
 }
 
+function applyShiftTheme(){
+  document.body.classList.toggle('pm',currentShift==='PM');
+}
+
 function switchReport(){
+  applyShiftTheme();
   resetToDefaults();
   renderAll();
   startStateSync();
@@ -1116,6 +1131,7 @@ function init(){
   });
 
   // Aplica defaults corretos pro turno detectado (sobrescrito pelo Firebase se houver dados)
+  applyShiftTheme();
   resetToDefaults();
   renderAll();
   startStateSync();
