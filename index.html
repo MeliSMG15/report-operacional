@@ -585,9 +585,22 @@ async function printReport(){
     if(toggleBtn)toggleBtn.textContent='▶ MOSTRAR';
   }
 
+  // Injeta CSS que zera animações/transitions/filtros durante a captura
+  // (evita imagem "lavada" por fadeUp das .card e filter:drop-shadow do donut)
+  const noAnimStyle=document.createElement('style');
+  noAnimStyle.textContent=`
+    *,*::before,*::after{
+      animation:none !important;
+      transition:none !important;
+    }
+    .donut-fill{filter:none !important;}
+    .card{opacity:1 !important;transform:none !important;}
+  `;
+  document.head.appendChild(noAnimStyle);
+
   try{
-    // Espera um frame pra layout reflowar com o compact aplicado
-    await new Promise(r=>requestAnimationFrame(()=>setTimeout(r,120)));
+    // Espera 2 frames + 300ms pra layout reflowar com compact aplicado e animações zeradas
+    await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(r,300))));
     const canvas=await html2canvas(document.body,{
       scale:2.5,
       useCORS:true,
@@ -595,6 +608,8 @@ async function printReport(){
       backgroundColor:getComputedStyle(document.body).backgroundColor||'#f4efe1',
       windowWidth:document.documentElement.scrollWidth,
       windowHeight:document.documentElement.scrollHeight,
+      scrollX:0,
+      scrollY:0,
     });
     const link=document.createElement('a');
     link.download=`report_${currentShift}_${currentDate}.png`;
@@ -606,6 +621,8 @@ async function printReport(){
     console.warn('print err',e);
     alert('Erro ao gerar print: '+(e.message||e));
   }finally{
+    // Remove CSS de captura
+    if(noAnimStyle.parentNode)noAnimStyle.parentNode.removeChild(noAnimStyle);
     // Restaura estado original do painel de Estações
     if(estCard&&!wasCompact){
       estCard.classList.remove('compact');
