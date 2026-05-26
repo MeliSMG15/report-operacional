@@ -574,9 +574,20 @@ async function printReport(){
   const original=btn.textContent;
   btn.textContent='⏳ GERANDO…';
   btn.disabled=true;
+
+  // Compactar painel de Estações de Trabalho durante o print
+  const estCard=document.querySelector('.panel-estacoes');
+  const toggleBtn=$('toggleStationsBtn');
+  const wasCompact=estCard&&estCard.classList.contains('compact');
+  const origToggleTxt=toggleBtn?toggleBtn.textContent:'';
+  if(estCard&&!wasCompact){
+    estCard.classList.add('compact');
+    if(toggleBtn)toggleBtn.textContent='▶ MOSTRAR';
+  }
+
   try{
-    // Espera um frame pra UI atualizar antes do capture
-    await new Promise(r=>requestAnimationFrame(()=>setTimeout(r,50)));
+    // Espera um frame pra layout reflowar com o compact aplicado
+    await new Promise(r=>requestAnimationFrame(()=>setTimeout(r,120)));
     const canvas=await html2canvas(document.body,{
       scale:2.5,
       useCORS:true,
@@ -595,6 +606,11 @@ async function printReport(){
     console.warn('print err',e);
     alert('Erro ao gerar print: '+(e.message||e));
   }finally{
+    // Restaura estado original do painel de Estações
+    if(estCard&&!wasCompact){
+      estCard.classList.remove('compact');
+      if(toggleBtn)toggleBtn.textContent=origToggleTxt;
+    }
     btn.textContent=original;
     btn.disabled=false;
   }
