@@ -7,6 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 :root {
   --bg:#f4efe1; --paper:#ffffff; --paper-2:#faf6ea;
@@ -296,6 +297,7 @@ tr.gap-row td{font-size:11px;}
     <button id="todayBtn" class="today-btn" title="Voltar para hoje">HOJE</button>
     <div class="live-badge"><span class="live-dot"></span>AO VIVO</div>
     <span class="sync-status syncing" id="syncStatus" title="Sincronização com Firebase">⏳ CONECTANDO</span>
+    <button id="printBtn" class="today-btn" title="Baixar print em alta resolução">📷 PRINT</button>
   </div>
   <div class="brand">REPORT <span>OPERACIONAL</span></div>
   <div class="topbar-right">
@@ -564,6 +566,38 @@ function startStateSync(){
     console.warn('listen err',err);
     setSyncStatus('error','⚠ desconectado');
   });
+}
+
+async function printReport(){
+  const btn=$('printBtn');
+  if(!btn||typeof html2canvas==='undefined'){alert('html2canvas não carregou');return;}
+  const original=btn.textContent;
+  btn.textContent='⏳ GERANDO…';
+  btn.disabled=true;
+  try{
+    // Espera um frame pra UI atualizar antes do capture
+    await new Promise(r=>requestAnimationFrame(()=>setTimeout(r,50)));
+    const canvas=await html2canvas(document.body,{
+      scale:2.5,
+      useCORS:true,
+      logging:false,
+      backgroundColor:getComputedStyle(document.body).backgroundColor||'#f4efe1',
+      windowWidth:document.documentElement.scrollWidth,
+      windowHeight:document.documentElement.scrollHeight,
+    });
+    const link=document.createElement('a');
+    link.download=`report_${currentShift}_${currentDate}.png`;
+    link.href=canvas.toDataURL('image/png');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }catch(e){
+    console.warn('print err',e);
+    alert('Erro ao gerar print: '+(e.message||e));
+  }finally{
+    btn.textContent=original;
+    btn.disabled=false;
+  }
 }
 
 function applyShiftTheme(){
@@ -1129,6 +1163,9 @@ function init(){
     if(dateEl)dateEl.value=currentDate;
     switchReport();
   });
+  // Botão Print
+  const printBtn=$('printBtn');
+  if(printBtn)printBtn.addEventListener('click',printReport);
 
   // Aplica defaults corretos pro turno detectado (sobrescrito pelo Firebase se houver dados)
   applyShiftTheme();
