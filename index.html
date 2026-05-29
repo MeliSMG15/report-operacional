@@ -878,7 +878,18 @@ function renderSortingTable(){
 function commitSort(el){
   const k=el.dataset.stkey;
   const i=parseInt(el.dataset.idx,10);
-  S[k][i]=parseN(el.textContent);
+  const input=parseN(el.textContent);
+  if(k==='sortNoCarrinho'){
+    // Input é interpretado como CUMULATIVO (total no momento).
+    // Armazena delta = input − soma das horas anteriores.
+    // Se hora anterior está vazia (0), ela não conta na soma, então
+    // o subtraendo vira a última hora preenchida automaticamente.
+    let prevCum=0;
+    for(let j=0;j<i;j++)prevCum+=(S.sortNoCarrinho[j]||0);
+    S[k][i]=Math.max(0,input-prevCum);
+  }else{
+    S[k][i]=input;
+  }
   renderAll();
   syncSet(k,S[k]);
 }
