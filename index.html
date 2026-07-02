@@ -291,7 +291,9 @@ tr.gap-row td{font-size:11px;}
   <div class="topbar-left">
     <input type="date" id="dateSelect" class="date-select">
     <select id="shiftSelect" class="shift-select">
+      <option value="AM0">AM0</option>
       <option value="AM">AM</option>
+      <option value="SD">SD</option>
       <option value="PM">PM</option>
     </select>
     <button id="todayBtn" class="today-btn" title="Voltar para hoje">HOJE</button>
@@ -529,7 +531,8 @@ function buildSnapshot(){
 }
 
 function resetToDefaults(){
-  S.inicio = currentShift==='PM' ? '13:00' : '00:15';
+  const shiftDefaults={AM0:'20:00', AM:'00:15', SD:'08:00', PM:'13:00'};
+  S.inicio = shiftDefaults[currentShift] || '00:15';
   S.processar=0; S.roteirizado=0; S.hc=0; S.abs=0;
   S.stations=[
     {name:'Estação 1', h:[0,0,0,0,0,0,0,0]},
@@ -1197,8 +1200,9 @@ function init(){
     });
   }
   if(shiftEl){
-    // Auto-detecta AM/PM no primeiro load
-    currentShift=new Date().getHours()<12?'AM':'PM';
+    // Auto-detecta ciclo no primeiro load (AM/SD/PM/AM0)
+    const h=new Date().getHours();
+    currentShift = h<8 ? 'AM' : h<14 ? 'SD' : h<20 ? 'PM' : 'AM0';
     shiftEl.value=currentShift;
     shiftEl.addEventListener('change',e=>{
       currentShift=e.target.value;
