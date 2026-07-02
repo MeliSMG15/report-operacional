@@ -377,6 +377,10 @@ tr.gap-row td{font-size:11px;}
           <span class="metric-label">Pcts Pendentes <small class="c-muted">(auto)</small></span>
           <span class="metric-value mono" id="mPendentes">0</span>
         </div>
+        <div class="metric-row" id="am0Row" style="display:none;background:linear-gradient(90deg,var(--blue-soft) 0%,var(--paper) 60%);">
+          <span class="metric-label">AM0 Etiquetados <small class="c-muted">(soma)</small></span>
+          <span class="metric-value mono c-blue" id="mAM0">0</span>
+        </div>
       </div>
 
     </div>
@@ -498,6 +502,10 @@ try{
 function todayISO(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 let currentDate=todayISO(), currentShift='AM';
 function buildStateRef(){return syncEnabled?fbDb.ref(`reports/${currentDate}/${currentShift}`):null;}
+// AM0 é extensão do turno AM: quando AM está ativo, escutamos AM0 também
+// e somamos os totais (etiquetados + no carrinho) no calculo.
+let am0Ref=null;
+let am0Etiquetados=0, am0Carrinho=0;
 let isApplyingRemote=false;
 let pendingRemoteUpdate=null;
 
@@ -551,6 +559,8 @@ function resetToDefaults(){
 function startStateSync(){
   if(!syncEnabled){setSyncStatus('error','✕ sem sync');return;}
   if(stateRef){try{stateRef.off();}catch(e){}}
+  if(am0Ref){try{am0Ref.off();}catch(e){} am0Ref=null;}
+  am0Etiquetados=0; am0Carrinho=0;
   stateRef=buildStateRef();
   if(!stateRef){setSyncStatus('error','✕ sem ref');return;}
   setSyncStatus('syncing','⏳ conectando…');
@@ -559,6 +569,7 @@ function startStateSync(){
     if(!r){
       // Nada salvo nesse dia/turno: fica vazio local, NÃO sobrescreve nada no Firebase
       setSyncStatus('synced','✓ novo (vazio)');
+      renderAll();
       return;
     }
     const ae=document.activeElement;
@@ -569,6 +580,22 @@ function startStateSync(){
     console.warn('listen err',err);
     setSyncStatus('error','⚠ desconectado');
   });
+  // Se turno atual é AM, escuta o AM0 do mesmo dia pra somar nos calculos
+  if(currentShift==='AM'){
+    am0Ref=fbDb.ref(`reports/${currentDate}/AM0`);
+    am0Ref.on('value',snap=>{
+      const r=snap.val();
+      if(!r){ am0Etiquetados=0; am0Carrinho=0; renderAll(); return; }
+      const stArr=ensureArr(r.stations);
+      am0Etiquetados=stArr.reduce((s,st)=>{
+        const h=st&&st.h?ensureArr(st.h):[];
+        return s+h.reduce((a,b)=>a+(Number(b)||0),0);
+      },0);
+      const sc=ensureArr(r.sortNoCarrinho);
+      am0Carrinho=sc.reduce((a,b)=>a+(Number(b)||0),0);
+      renderAll();
+    });
+  }
 }
 
 async function printReport(){
@@ -734,8 +761,14 @@ function genHourLabels(count){
 }
 function getFinalM(){return (toMin(S.inicio)+SHIFT_H*60)%1440;}
 function getFinalStr(){return fromMin(getFinalM());}
-function getEtiquetados(){return S.stations.reduce((s,st)=>s+st.h.reduce((a,b)=>a+b,0),0);}
-function getCarrinho(){return S.sortNoCarrinho.reduce((a,b)=>a+b,0);}
+function getEtiquetados(){
+  const base=S.stations.reduce((s,st)=>s+st.h.reduce((a,b)=>a+b,0),0);
+  return base+(currentShift==='AM'?am0Etiquetados:0);
+}
+function getCarrinho(){
+  const base=S.sortNoCarrinho.reduce((a,b)=>a+b,0);
+  return base+(currentShift==='AM'?am0Carrinho:0);
+}
 function getAlocPend(){return Math.max(0,(S.roteirizado||0)-getCarrinho());}
 function getPlanPerHour(){return S.roteirizado/H_COUNT;}
 
@@ -940,6 +973,13 @@ function renderMetrics(){
   const pendEl=$('mPendentes');
   pendEl.textContent=fmtNum(pend);
   pendEl.className='metric-value mono '+(pend>0?'c-red':pend<0?'c-green':'');
+
+  // Linha AM0: visivel apenas no ciclo AM
+  const am0Row=$('am0Row');
+  if(am0Row){
+    am0Row.style.display=currentShift==='AM'?'':'none';
+    $('mAM0').textContent=fmtNum(am0Etiquetados);
+  }
 
   $('shiftStart').textContent=S.inicio;
   $('shiftEnd').textContent=getFinalStr();
