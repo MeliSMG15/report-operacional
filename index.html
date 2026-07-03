@@ -377,7 +377,7 @@ tr.gap-row td{font-size:11px;}
           <span class="metric-label">Pcts Pendentes <small class="c-muted">(auto)</small></span>
           <span class="metric-value mono" id="mPendentes">0</span>
         </div>
-        <div class="metric-row" id="am0Row" style="display:none;background:linear-gradient(90deg,var(--blue-soft) 0%,var(--paper) 60%);">
+        <div class="metric-row" id="am0Row" hidden style="background:linear-gradient(90deg,#dbeafe 0%,#ffffff 60%);">
           <span class="metric-label">AM0 Etiquetados <small class="c-muted">(soma)</small></span>
           <span class="metric-value mono c-blue" id="mAM0">0</span>
         </div>
@@ -977,7 +977,7 @@ function renderMetrics(){
   // Linha AM0: visivel apenas no ciclo AM
   const am0Row=$('am0Row');
   if(am0Row){
-    am0Row.style.display=currentShift==='AM'?'':'none';
+    am0Row.hidden=(currentShift!=='AM');
     $('mAM0').textContent=fmtNum(am0Etiquetados);
   }
 
