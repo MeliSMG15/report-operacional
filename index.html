@@ -846,11 +846,17 @@ function renderStations(){
   const grandRit=totActive>0?Math.round(grandTotal/totActive):0;
   html+=`<tr class="total-row"><td>Total Realizado</td>${totals.map(v=>`<td>${fmtNum(v)}</td>`).join('')}<td>${fmtNum(grandTotal)}</td><td>${grandRit>0?fmtNum(grandRit)+'/h':'—'}</td><td></td></tr>`;
 
-  const planCells=Array(H_COUNT).fill(0).map(_=>`<td>${fmtNum(planPHR)}</td>`).join('');
+  const dynPlan=Array.from({length:H_COUNT},(_,i)=>{
+    const cum=totals.slice(0,i).reduce((a,b)=>a+b,0);
+    const rem=Math.max(0,(S.roteirizado||0)-cum);
+    const hrs=H_COUNT-i;
+    return hrs>0?Math.round(rem/hrs):0;
+  });
+  const planCells=dynPlan.map(p=>`<td>${fmtNum(p)}</td>`).join('');
   const planTotal=planPHR*H_COUNT;
   html+=`<tr class="plan-row"><td>Planejado</td>${planCells}<td>${fmtNum(planTotal)}</td><td>${planPH>0?fmtNum(planPHR)+'/h':'—'}</td><td></td></tr>`;
 
-  const gaps=totals.map(v=>v-planPHR);
+  const gaps=totals.map((v,i)=>v-dynPlan[i]);
   const grandGap=grandTotal-planTotal;
   const gapCells=gaps.map(g=>{
     const cls=g>0?'gap-pos':g<0?'gap-neg':'gap-zero';
