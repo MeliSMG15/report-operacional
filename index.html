@@ -919,7 +919,7 @@ function renderSortingTable(){
   const totCls=carTotal>0?(carTotal>=planTotal?'c-green':'c-red'):'c-green';
 
   $('sortBody').innerHTML=`
-    <tr><td><strong class="${totCls}">No Carrinho</strong></td>${carCells}<td><strong class="${totCls}">${fmtNum(carTotal)}</strong></td></tr>
+    <tr><td><strong>No Carrinho</strong></td>${carCells}<td><strong class="${totCls}">${fmtNum(carTotal)}</strong></td></tr>
     <tr><td><strong class="c-muted">Pcts Planejados</strong></td>${planCells}<td><strong class="c-muted">${fmtNum(planTotal)}</strong></td></tr>`;
 }
 
