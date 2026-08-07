@@ -914,8 +914,14 @@ function renderSortingTable(){
 
   const carTotal=S.sortNoCarrinho.reduce((a,b)=>a+b,0);
   const planTotal=planPH*H_COUNT;
-  const carCells=S.sortNoCarrinho.map((v,i)=>{const cls=v>0?(v>=planPH?'c-green':'c-red'):'';return `<td><span class="ef mono ${cls}" contenteditable="true" data-stkey="sortNoCarrinho" data-idx="${i}">${v>0?fmtNum(v):'—'}</span></td>`;}).join('');
-  const planCells=Array(H_COUNT).fill(0).map(_=>`<td><span class="c-muted">${fmtNum(planPH)}</span></td>`).join('');
+  const dynSortPlan=Array.from({length:H_COUNT},(_,i)=>{
+    const cum=S.sortNoCarrinho.slice(0,i).reduce((a,b)=>a+b,0);
+    const rem=Math.max(0,(S.roteirizado||0)-cum);
+    const hrs=H_COUNT-i;
+    return hrs>0?Math.round(rem/hrs):0;
+  });
+  const carCells=S.sortNoCarrinho.map((v,i)=>{const cls=v>0?(v>=dynSortPlan[i]?'c-green':'c-red'):'';return `<td><span class="ef mono ${cls}" contenteditable="true" data-stkey="sortNoCarrinho" data-idx="${i}">${v>0?fmtNum(v):'—'}</span></td>`;}).join('');
+  const planCells=dynSortPlan.map(p=>`<td><span class="c-muted">${fmtNum(p)}</span></td>`).join('');
   const totCls=carTotal>0?(carTotal>=planTotal?'c-green':'c-red'):'c-green';
 
   $('sortBody').innerHTML=`
